@@ -13,7 +13,7 @@ struct Allocator
 {
     __device__ Allocator() : m_ptr(nullptr)
     {
-        m_ptr = SHMEM_START;
+        m_ptr = SHMEM_START;        
     }
 
     /**
@@ -28,11 +28,29 @@ struct Allocator
     __device__ __forceinline__ char* alloc(size_t num_bytes,
                                            size_t byte_alignment = 8)
     {
-        m_ptr = static_cast<char*>(m_ptr) + num_bytes;
+        align(byte_alignment, m_ptr);
+
+        char* ret = m_ptr;
+
+        m_ptr = m_ptr + num_bytes;
 
         assert(get_allocated_size_bytes() <= get_max_size_bytes());
 
-        return m_ptr;
+        return ret;
+    }
+
+    /**
+     * @brief a typed version of alloc() where the input number of elements (not
+     * number of bytes).
+     * @tparam T type of the pointer
+     * @param count number of elements to be allocated
+     * @param byte_alignment alignment size
+     */
+    template <typename T>
+    __device__ __forceinline__ T* alloc(size_t count,
+                                        size_t byte_alignment = sizeof(T))
+    {
+        return reinterpret_cast<T*>(alloc(count * sizeof(T), byte_alignment));
     }
 
     /**
@@ -55,6 +73,29 @@ struct Allocator
     }
 
    private:
+    /**
+     * @brief given a pointer, this function returns a pointer to the first
+     * location at the boundary of a given alignment size. This what std:align
+     * does but it does not work with CUDA so this a stripped down version of
+     * it.
+     * @tparam T type of the pointer
+     * @param byte_alignment number of bytes to get the pointer to be aligned to
+     * @param ptr input/output pointer pointing at first usable location. On
+     * return, it will be properly aligned to the beginning of the first element
+     * that is aligned to alignment
+     */
+    template <typename T>
+    __device__ __host__ __inline__ void align(const std::size_t byte_alignment,
+                                              T*&               ptr) noexcept
+    {
+        const uint64_t intptr    = reinterpret_cast<uint64_t>(ptr);
+        const uint64_t remainder = intptr % byte_alignment;
+        if (remainder == 0) {
+            return;
+        }
+        const uint64_t aligned = intptr + byte_alignment - remainder;
+        ptr                    = reinterpret_cast<T*>(aligned);
+    }
     char* m_ptr;
 };
 
