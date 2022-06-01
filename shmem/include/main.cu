@@ -3,16 +3,19 @@
 #include <stdio.h>
 #include "gtest/gtest.h"
 
+#include "CUDASharedMemory.cuh"
+
 __global__ void exec_kernel()
 {
-    printf("\n I am thread %d from exec_kernel\n", threadIdx.x);
+    CUDASharedMemory::Allocator shmem_allocator;
+    shmem_allocator.alloc(2);
 }
 
 TEST(Test, exe)
 {
-    exec_kernel<<<1, 1>>>();
+    exec_kernel<<<1, 1, 10, NULL>>>();
     auto err = cudaDeviceSynchronize();
-    EXPECT_EQ(err, cudaSuccess);    
+    EXPECT_EQ(err, cudaSuccess);
 }
 
 int main(int argc, char** argv)
