@@ -6,13 +6,17 @@
 #include "CUDASharedMemory.cuh"
 #include "helper.h"
 
-__global__ void exec_kernel(int* d_success, size_t max_shmem)
+__global__ void shmem_kernel(int* d_success, size_t max_shmem)
 {
     CUDASharedMemory::Allocator shmem_allocator;
 
+    // get a pointer in shared memory of type char with allocation size of 2
+    // bytes
     char* char_ptr = shmem_allocator.alloc(2);
 
-    uint32_t* uint32_ptr = shmem_allocator.alloc<uint32_t>(1);
+    // get a pointer in shared memory (after char_ptr) of type uint32_t to store
+    // a single uint32_t i.e., 4 bytes
+    uint32_t* uint32_ptr = shmem_allocator.alloc<uint32_t>(1);   
 
 
     // this should be zero if uin32_ptr is aligned to 32 bit
@@ -30,7 +34,7 @@ TEST(Test, exe)
 
     CUDA_ERROR(cudaMallocManaged((void**)&success, sizeof(int)));
 
-    exec_kernel<<<1, 1, shmem_bytes, NULL>>>(success, shmem_bytes);
+    shmem_kernel<<<1, 1, shmem_bytes, NULL>>>(success, shmem_bytes);
     auto err = cudaDeviceSynchronize();
     EXPECT_EQ(err, cudaSuccess);
     EXPECT_EQ(success[0], 0);
